@@ -9,36 +9,52 @@ namespace Serialization {
 
 	class JSONParser
 	{
-		enum State { TOP, ARRAY, MAP };
+		const static size_t bufsize = 4096;
 	public:
-		JSONParser(Serialization::IDeserializer& deserializer);
-		void parse(const char* json);
+		JSONParser(std::istream& stream, UINT encoding = CP_UTF8);
+		~JSONParser();
+		void parse(Serialization::IDeserializer& obj)
+		{
+			sink = &obj;
+			parse();
+			sink = NULL;
+		}
 	protected:
-		void skip_space(const char*& p);
-		void parse_array(const char*& json);
-		void parse_object(const char*& json);
-		void parse_string(const char*& json, std::string& s);
+		void parse();
+		void skip_space();
+		void parse_array();
+		void parse_object();
+		void parse_string(std::string& s);
 	private:
-		Serialization::IDeserializer& sink;
+		CString decode(const char* s);
+		std::istream& stream;
+		char* buf;
+		char* json;
+		char* deadline;
+		Serialization::IDeserializer* sink;
 		std::string path;
-		State state;
+		UINT enc;
+		bool eof;
 	};
 
 	class JSONWriter: public Serialization::IWriter
 	{
 	public:
-		JSONWriter(std::ostream& stream)
+		JSONWriter(std::ostream& stream, UINT encoding = CP_UTF8)
 			: stream(stream)
 			, need_comma(false)
+			, enc(encoding)
 		{
 		}
 	public:
 		virtual void startelem(const char* name);
-		virtual void data(const char* name, const char* val, char format);
+		virtual void data(const char* name, LPCTSTR val, char format);
 		virtual void endelem(const char* name);
 	private:
+		CStringA encode(LPCTSTR s);
 		std::ostream& stream;
 		bool need_comma;
+		UINT enc;
 	};
 
 } // namespace Serialization

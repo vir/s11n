@@ -28,19 +28,22 @@ namespace Serialization {
 	class XMLWriter:public Serialization::IWriter
 	{
 	public:
-		XMLWriter(std::ostream& stream)
+		XMLWriter(std::ostream& stream, UINT encoding = CP_UTF8)
 			: stream(stream)
 			, level(0)
+			, enc(encoding)
 		{
 		}
 	public:
 		virtual void startelem(const char* name);
-		virtual void data(const char* name, const char* val, char format);
+		virtual void data(const char* name, LPCTSTR val, char format);
 		virtual void endelem(const char* name);
 	private:
+		CStringA encode(LPCTSTR s);
 		std::ostream& stream;
 		std::string tmp;
 		unsigned int level;
+		UINT enc;
 	};
 
 } // namespace Serialization

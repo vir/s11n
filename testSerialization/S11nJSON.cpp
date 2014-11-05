@@ -3,26 +3,36 @@
 #include <string>
 #include <sstream>
 
-Serialization::JSONParser::JSONParser(Serialization::IDeserializer& deserializer)
-	: sink(deserializer)
-	, state(TOP)
+
+Serialization::JSONParser::JSONParser(std::istream& stream, UINT encoding /*= CP_UTF8*/)
+	: stream(stream), enc(encoding)
+	, buf(NULL), json(NULL), deadline(NULL)
 {
+	buf = new char[bufsize + 1];
+	buf[bufsize] = '\0'; // just to be on safe side
+	json = buf;
+	std::streamsize read = stream.readsome(buf, bufsize);
+	deadline = buf + read;
+	eof = stream.eof();
 }
 
-void Serialization::JSONParser::parse(const char* json)
+Serialization::JSONParser::~JSONParser()
 {
-	while(*json)
+	delete[] buf;
+}
+
+void Serialization::JSONParser::parse()
+{
+	while(*json && json != deadline)
 	{
-		skip_space(json);
+		skip_space();
 		switch (*json)
 		{
 		case '[':
-			parse_array(json);
-			++json;
+			parse_array();
 			break;
 		case '{':
-			parse_object(json);
-			++json;
+			parse_object();
 			break;
 		default:
 			ASSERT(0);
@@ -32,39 +42,54 @@ void Serialization::JSONParser::parse(const char* json)
 	}
 }
 
-void Serialization::JSONParser::skip_space(const char*& p)
+void Serialization::JSONParser::skip_space()
 {
-	while(*p && isspace(*p))
-		++p;
+	while(*json && json != deadline)
+	{
+		if(json - buf > bufsize / 2)
+		{
+			size_t waste = (json - buf);
+			::memmove(buf, json, deadline - json);
+			json = buf;
+			deadline -= waste;
+			if(! eof)
+				deadline += stream.readsome(deadline, waste);
+			eof = stream.eof();
+		}
+		if(! isspace(*json))
+			break;
+		++json;
+	}
 }
 
-void Serialization::JSONParser::parse_array(const char*& json)
+void Serialization::JSONParser::parse_array()
 {
-	ASSERT(0);
+	ASSERT(!"Not implemented");
 }
 
-void Serialization::JSONParser::parse_object(const char*& json)
+void Serialization::JSONParser::parse_object()
 {
 	std::string key, val;
 	path += "/*";
 	ASSERT(*json == '{');
 	++json;
 
-	while(*json && *json != '}')
+	while(*json && *json != '}' && json != deadline)
 	{
 		int c;
-		skip_space(json);
-		parse_string(json, key);
+		skip_space();
+		parse_string(key);
 		++json;
-		skip_space(json);
+		skip_space();
 		if(*json != ':')
 			throw std::exception("bad object");
 		++json;
-		skip_space(json);
+		skip_space();
 		switch (*json)
 		{
 		case '\"':
-			parse_string(json, val);
+			parse_string(val);
+			++json;
 			break;
 		default:
 			c = strcspn(json, ",} \t\r\n");
@@ -72,19 +97,18 @@ void Serialization::JSONParser::parse_object(const char*& json)
 			json += c;
 			break;
 		}
-		sink.data((path + '/' + key).c_str(), val.c_str());
-		++json;
-		skip_space(json);
+		sink->data((path + '/' + key).c_str(), decode(val.c_str()));
+		skip_space();
 		if(*json == ',')
 		{
 			++json;
-			skip_space(json);
+			skip_space();
 		}
 	}
-	sink.endelem(path.c_str());
+	sink->endelem(path.c_str());
 }
 
-void Serialization::JSONParser::parse_string(const char*& json, std::string& s)
+void Serialization::JSONParser::parse_string(std::string& s)
 {
 	std::ostringstream ss;
 	if(*json != '\"')
@@ -132,7 +156,17 @@ void Serialization::JSONParser::parse_string(const char*& json, std::string& s)
 	s = ss.str();
 }
 
-
+CString Serialization::JSONParser::decode(const char* s)
+{
+#ifndef _UNICODE
+# error "ANSI Build not implemented"
+#endif
+	int len = ::MultiByteToWideChar(enc, 0, s, -1, NULL, 0);
+	CString res;
+	len = ::MultiByteToWideChar(enc, 0, s, -1, res.GetBuffer(len), len);
+	res.ReleaseBuffer(len);
+	return res;
+}
 
 
 static std::string json_escape(const char* s)
@@ -140,13 +174,14 @@ static std::string json_escape(const char* s)
 	return s;
 }
 
+
 void Serialization::JSONWriter::startelem(const char* name)
 {
 	stream << "{";
 	need_comma = false;
 }
 
-void Serialization::JSONWriter::data(const char* name, const char* val, char format)
+void Serialization::JSONWriter::data(const char* name, LPCTSTR val, char format)
 {
 	if(need_comma)
 		stream << ", ";
@@ -155,10 +190,13 @@ void Serialization::JSONWriter::data(const char* name, const char* val, char for
 	{
 	case 'b':
 	case 'n':
-		stream << val;
+		stream << encode(val);
+		break;
+	case 'z':
+		stream << "null";
 		break;
 	default:
-		stream << '"' << json_escape(val) << '"';
+		stream << '"' << json_escape(encode(val)) << '"';
 		break;
 	}
 	need_comma = true;
@@ -169,3 +207,16 @@ void Serialization::JSONWriter::endelem(const char* name)
 	stream << "}";
 	need_comma = true;
 }
+
+CStringA Serialization::JSONWriter::encode(LPCTSTR s)
+{
+#ifndef _UNICODE
+# error "ANSI Build not implemented"
+#endif
+	int len = ::WideCharToMultiByte(enc, 0, s, -1, NULL, 0, NULL, NULL);
+	CStringA res;
+	len = ::WideCharToMultiByte(enc, 0, s, -1, res.GetBuffer(len), len, NULL, NULL);
+	res.ReleaseBuffer(len);
+	return res;
+}
+

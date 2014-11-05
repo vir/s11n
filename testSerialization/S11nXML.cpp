@@ -2,6 +2,12 @@
 #include "S11nXML.h"
 #include <stdexcept>
 
+static CString FromUtf8(const char * s)
+{
+	return CString(CStringA(s));
+}
+
+
 Serialization::XMLParser::XMLParser(Serialization::IDeserializer& deserializer) : sink(deserializer)
 {
 	parser = XML_ParserCreate(NULL);
@@ -30,7 +36,7 @@ void Serialization::XMLParser::StartElementHandler(void *userData, const XML_Cha
 	Serialization::XMLParser * self = reinterpret_cast<Serialization::XMLParser *>(userData);
 	// flush cdata accumulator first
 	if(self->m_cdata.length()) {
-		self->sink.data(self->m_path.c_str(), self->m_cdata.c_str());
+		self->sink.data(self->m_path.c_str(), FromUtf8(self->m_cdata.c_str()));
 		self->m_cdata.clear();
 	}
 
@@ -42,7 +48,7 @@ void Serialization::XMLParser::StartElementHandler(void *userData, const XML_Cha
 	// extract attributes
 	for(int i = 0; atts[i]; i+=2) {
 		//printf("Attr %d: %s = %s\n", i, atts[i], atts[i+1]);
-		self->sink.data((self->m_path + "/@" + atts[i]).c_str(), atts[i+1]);
+		self->sink.data((self->m_path + "/@" + atts[i]).c_str(), FromUtf8(atts[i+1]));
 	}
 	//return ++(self->m_counter);
 }
@@ -53,7 +59,7 @@ void Serialization::XMLParser::EndElementHandler(void *userData, const XML_Char 
 	//printf("endelem(%p, %d, %s, %s), path = %s\n", userdata, state, nspace, name, self->m_path.c_str());
 	// flush cdata accumulator first
 	if(self->m_cdata.length()) {
-		self->sink.data(self->m_path.c_str(), self->m_cdata.c_str());
+		self->sink.data(self->m_path.c_str(), FromUtf8(self->m_cdata.c_str()));
 		self->m_cdata.clear();
 	}
 
@@ -106,6 +112,8 @@ static std::string escape_xml(const char* s)
 	return res;
 }
 
+
+
 void Serialization::XMLWriter::startelem(const char* name)
 {
 	for(unsigned int i = 0; i < level; ++i)
@@ -114,11 +122,11 @@ void Serialization::XMLWriter::startelem(const char* name)
 	++level;
 }
 
-void Serialization::XMLWriter::data(const char* name, const char* val, char format)
+void Serialization::XMLWriter::data(const char* name, LPCTSTR val, char format)
 {
 	if(name[0] == '@')
 	{
-		stream << " " << name + 1 << "=\"" << escape_xml(val) << '\"';
+		stream << " " << name + 1 << "=\"" << escape_xml(encode(val)) << '\"';
 	}
 	else
 	{
@@ -127,7 +135,7 @@ void Serialization::XMLWriter::data(const char* name, const char* val, char form
 		tmp += "<";
 		tmp += name;
 		tmp += ">";
-		tmp += escape_xml(val);
+		tmp += escape_xml(encode(val));
 		tmp += "</";
 		tmp += name;
 		tmp += ">\n";
@@ -141,4 +149,16 @@ void Serialization::XMLWriter::endelem(const char* name)
 	for(unsigned int i = 0; i < level; ++i)
 		stream << '\t';
 	stream << "</" << name << ">\n";
+}
+
+CStringA Serialization::XMLWriter::encode(LPCTSTR s)
+{
+#ifndef _UNICODE
+# error "ANSI Build not implemented"
+#endif
+	int len = ::WideCharToMultiByte(enc, 0, s, -1, NULL, 0, NULL, NULL);
+	CStringA res;
+	len = ::WideCharToMultiByte(enc, 0, s, -1, res.GetBuffer(len), len, NULL, NULL);
+	res.ReleaseBuffer(len);
+	return res;
 }

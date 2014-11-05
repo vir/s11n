@@ -2,6 +2,7 @@
 #define S11NDESERIALIZER_H_INCLUDED
 
 #include "S11nCommon.h"
+#include <sstream>
 
 namespace Serialization {
 
@@ -95,46 +96,36 @@ namespace Serialization {
 	};
 #endif
 
-	static bool str2bool(const char* str)
-	{
-		static const char* tr[] = { "yes", "true", "t", "on", "1", NULL };
-		const char** t = tr;
-		while(t && *t)
-		{
-			if(0 == strcmp(*t, str))
-				return true;
-			++t;
-		}
-		return false;
-	}
-
-	static CString FromUtf8(const char * s)
-	{
-		return CString(CStringA(s));
-	}
-
-	static CStringA ToUtf8(CString s)
-	{
-		return CStringA(CString(s));
-	}
-
 	template<class RecType>
 	class Deserializer: public IDeserializer
 	{
 	private:
+		static bool str2bool(LPCTSTR str)
+		{
+			static LPCTSTR tr[] = { _T("true"), _T("yes"), _T("t"), _T("on"), _T("1"), NULL };
+			LPCTSTR* t = tr;
+			while(t && *t)
+			{
+				if(0 == _tcscmp(*t, str))
+					return true;
+				++t;
+			}
+			return false;
+		}
+
 		class Helper
 		{
 		private:
 			inline bool check_name(const char * name) { return 0 == strcmp(m_name, name); }
-			inline void store(CString& var) { var = FromUtf8(m_value); }
-			inline void store(long& var)    { var = atol(m_value); }
-			inline void store(unsigned long& var) { var = atol(m_value); }
-			inline void store(bool& var)    { var = str2bool(m_value); }
+			inline void store(CString& var)           { var = m_value; }
+			inline void store(long& var)              { var = _ttol(m_value); }
+			inline void store(unsigned long& var)     { var = _ttol(m_value); }
+			inline void store(bool& var)              { var = str2bool(m_value); }
 		private:
 			const char* m_name;
-			const char* m_value;
+			LPCTSTR m_value;
 		public:
-			Helper(const char* name, const char* val):m_name(name),m_value(val) { }
+			Helper(const char* name, LPCTSTR val):m_name(name),m_value(val) { }
 			template<typename T> inline void field(T& var, const char* name) { if(check_name(name)) store(var); }
 		};
 
@@ -149,7 +140,7 @@ namespace Serialization {
 		}
 		bool complete() const { return m_completion_flag; }
 	public:
-		virtual void data(const char* path, const char* value)
+		virtual void data(const char* path, LPCTSTR value)
 		{
 			CPathTokenizer p(path);
 			if(! p.eat_token(RecType::xml_element_name()))
@@ -175,18 +166,21 @@ namespace Serialization {
 	private:
 		class Helper
 		{
+			typedef std::basic_ostringstream<TCHAR, std::char_traits<TCHAR> > TOSS;
 		public:
 			Helper(Serialization::IWriter& writer): writer(writer) { }
-			template<typename T> inline void field(const T& var, const char* name) { std::stringstream ss; ss << var; writer.data(name, ss.str().c_str(), 's'); }
-			template<> inline void field<bool>(const bool& var, const char* name) { writer.data(name, var ? "true" : "false", 'b'); }
-			template<> inline void field<CString>(const CString& var, const char* name) { writer.data(name, ToUtf8(var), 's'); }
+			template<typename T> inline void field(const T& var, const char* name) { TOSS ss; ss << var; writer.data(name, ss.str().c_str(), 's'); }
+			template<> inline void field<bool>(const bool& var, const char* name) { writer.data(name, var ? _T("true") : _T("false"), 'b'); }
+			template<> inline void field<CString>(const CString& var, const char* name) { writer.data(name, var, 's'); }
+			template<> inline void field<BSTR>(const BSTR& var, const char* name) { field(CString(var), name); }
+			template<> inline void field<long>(const long& var, const char* name) { TOSS ss; ss << var; writer.data(name, ss.str().c_str(), 'n'); }
+			template<> inline void field<unsigned long>(const unsigned long& var, const char* name) { TOSS ss; ss << var; writer.data(name, ss.str().c_str(), 'n'); }
 		private:
 			Serialization::IWriter& writer;
 		};
 
 	private:
 		RecType& m_item;
-		bool m_completion_flag;
 	public:
 		explicit Serializer(RecType& itemref)
 			: m_item(itemref)

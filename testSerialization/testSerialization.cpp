@@ -61,16 +61,17 @@ bool test1()
 bool test2()
 {
 	const char * xml = "{"
-		"\"@attr\": \"first\","
-		"\"stringfield\": \"Hi, here&there\","
-		"\"longfield\": 123454321,"
-		"\"boolfield\": true\n"
+		"\"@attr\": \"first\", "
+		"\"stringfield\": \"Hi, here&there\", "
+		"\"longfield\": 123454321, "
+		"\"boolfield\": true"
 		"}";
 
+	std::istringstream ss(xml);
+	Serialization::JSONParser p1(ss);
 	struct TestStruct1 ts1;
 	Serialization::Deserializer<TestStruct1> d1(ts1);
-	Serialization::JSONParser p1(d1);
-	p1.parse(xml);
+	p1.parse(d1);
 
 	if(ts1.attr != _T("first"))
 		return false;
