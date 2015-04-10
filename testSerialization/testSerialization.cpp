@@ -3,10 +3,12 @@
 
 #include "stdafx.h"
 
-#include "S11nDeserializer.h"
+#include "S11nMain.h"
 #include "S11nXML.h"
 #include "S11nJSON.h"
 #include <sstream>
+#include <vector>
+#include <iostream>
 
 struct TestStruct1
 {
@@ -92,12 +94,70 @@ bool test2()
 	return true;
 }
 
+class CTestStructList: public std::vector<struct TestStruct1>
+{
+public:
+	static const char* xml_element_name() { return "struct-list"; }
+};
+
+bool test3()
+{
+	const char * xml = // "<?xml version=\"1.0\" ?>\n"
+		"<struct-list>\n"
+		"\t<struct attr=\"first\">\n"
+		"\t\t<stringfield>Hi, here&amp;there</stringfield>\n"
+		"\t\t<longfield>123454321</longfield>\n"
+		"\t\t<boolfield>true</boolfield>\n"
+		"\t</struct>\n"
+		"\t<struct attr=\"second\">\n"
+		"\t\t<stringfield>Oh, shit!</stringfield>\n"
+		"\t\t<longfield>666</longfield>\n"
+		"\t\t<boolfield>false</boolfield>\n"
+		"\t</struct>\n"
+		"\t<struct attr=\"third\">\n"
+		"\t\t<stringfield>OMFG</stringfield>\n"
+		"\t\t<longfield>1998</longfield>\n"
+		"\t\t<boolfield>true</boolfield>\n"
+		"\t</struct>\n"
+		"</struct-list>\n";
+
+	CTestStructList v1;
+	Serialization::TableDeserializer<CTestStructList> d1(v1);
+	Serialization::XMLParser p1(d1);
+	p1.parse(xml);
+
+	if(v1.size() != 3)
+		return false;
+	if(v1[0].attr != _T("first"))
+		return false;
+	if(v1[0].str != _T("Hi, here&there"))
+		return false;
+	if(v1[0].lng != 123454321L)
+		return false;
+	if(! v1[0].bol)
+		return false;
+
+	std::ostringstream x;
+	Serialization::TableSerializer<CTestStructList> s1(v1);
+	Serialization::XMLWriter w1(x);
+	s1.write(w1);
+	if(x.str() != xml)
+	{
+		std::cout << "EXP: " << xml << std::endl << "GOT: " << x.str() << std::endl;
+		return false;
+	}
+
+	return true;
+}
+
 int _tmain(int argc, _TCHAR* argv[])
 {
 	int rc = 0;
 	if(! test1())
 		++rc;
 	if(! test2())
+		++rc;
+	if(! test3())
 		++rc;
 	return rc;
 }

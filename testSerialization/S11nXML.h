@@ -1,12 +1,13 @@
 #ifndef S11NXML_H_INCLUDED
 #define S11NXML_H_INCLUDED
 
-#include "S11nCommon.h"
+#include "S11nMain.h"
 #include <string>
-#include "expat.h"
+#include <stack>
 
 namespace Serialization {
 
+#include "expat.h"
 
 	class XMLParser
 	{
@@ -28,10 +29,11 @@ namespace Serialization {
 	class XMLWriter:public Serialization::IWriter
 	{
 	public:
-		XMLWriter(std::ostream& stream, UINT encoding = CP_UTF8)
-			: stream(stream)
+		XMLWriter(std::ostream& output_stream, UINT encoding = CP_UTF8)
+			: stream(output_stream)
 			, level(0)
 			, enc(encoding)
+			, attrs(false)
 		{
 		}
 	public:
@@ -41,9 +43,9 @@ namespace Serialization {
 	private:
 		CStringA encode(LPCTSTR s);
 		std::ostream& stream;
-		std::string tmp;
 		unsigned int level;
 		UINT enc;
+		bool attrs;
 	};
 
 } // namespace Serialization

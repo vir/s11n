@@ -116,36 +116,40 @@ static std::string escape_xml(const char* s)
 
 void Serialization::XMLWriter::startelem(const char* name)
 {
+	if(attrs)
+		stream << ">\n";
 	for(unsigned int i = 0; i < level; ++i)
 		stream << '\t';
 	stream << "<" << name;
 	++level;
+	attrs = true;
 }
 
 void Serialization::XMLWriter::data(const char* name, LPCTSTR val, char format)
 {
 	if(name[0] == '@')
 	{
-		stream << " " << name + 1 << "=\"" << escape_xml(encode(val)) << '\"';
+		ASSERT(attrs);
+		if(attrs)
+			stream << " " << name + 1 << "=\"" << escape_xml(encode(val)) << '\"';
 	}
 	else
 	{
+		if(attrs)
+			stream << ">\n";
+		attrs = false;
 		for(unsigned int i = 0; i < level; ++i)
-			tmp += '\t';
-		tmp += "<";
-		tmp += name;
-		tmp += ">";
-		tmp += escape_xml(encode(val));
-		tmp += "</";
-		tmp += name;
-		tmp += ">\n";
+			stream << '\t';
+		stream << "<" << name << ">" << escape_xml(encode(val)) << "</" << name << ">\n";
 	}
 }
 
 void Serialization::XMLWriter::endelem(const char* name)
 {
+	if(attrs)
+		stream << ">\n";
+	attrs = false;
 	--level;
-	stream << ">\n" << tmp;
 	for(unsigned int i = 0; i < level; ++i)
 		stream << '\t';
 	stream << "</" << name << ">\n";

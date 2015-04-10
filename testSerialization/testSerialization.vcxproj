@@ -90,8 +90,7 @@
     <Text Include="ReadMe.txt" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="S11nCommon.h" />
-    <ClInclude Include="S11nDeserializer.h" />
+    <ClInclude Include="S11nMain.h" />
     <ClInclude Include="S11nJSON.h" />
     <ClInclude Include="S11nXML.h" />
     <ClInclude Include="stdafx.h" />

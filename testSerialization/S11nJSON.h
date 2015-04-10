@@ -3,7 +3,7 @@
 
 #include <iosfwd>
 #include <string>
-#include "S11nCommon.h"
+#include "S11nMain.h"
 
 namespace Serialization {
 

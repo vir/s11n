@@ -24,17 +24,14 @@
     <ClInclude Include="targetver.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="S11nDeserializer.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="S11nJSON.h">
+      <Filter>Source Files</Filter>
     </ClInclude>
-    <ClInclude Include="S11nCommon.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="S11nMain.h">
+      <Filter>Source Files</Filter>
     </ClInclude>
     <ClInclude Include="S11nXML.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="S11nJSON.h">
-      <Filter>Header Files</Filter>
+      <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
