@@ -16,7 +16,7 @@ struct TestStruct1
 	static const char* xml_element_name() { return "struct"; }
 	template<class Helper>void serialization(Helper& sr)
 	{
-		sr.field(attr, "@attr");
+		sr.field(attr, "@attr"); // attrs should go first
 		sr.field(str, "stringfield");
 		sr.field(lng, "longfield");
 		sr.field(bol, "boolfield");
@@ -150,6 +150,61 @@ bool test3()
 	return true;
 }
 
+struct TestStruct2
+{
+	TestStruct2() { }
+	static const char* xml_element_name() { return "super"; }
+	template<class Helper>void serialization(Helper& sr)
+	{
+		sr.field(name, "@name"); // attrs should go first
+		sr.complex(sub, "sub");
+		sr.complex(sec, "another");
+	}
+	CString name;
+	TestStruct1 sub, sec;
+};
+
+bool test4()
+{
+	const char * xml = // "<?xml version=\"1.0\" ?>\n"
+		"<super name=\"supername\">\n"
+		"\t<sub attr=\"first\">\n"
+		"\t\t<stringfield>Hi, here&amp;there</stringfield>\n"
+		"\t\t<longfield>123454321</longfield>\n"
+		"\t\t<boolfield>true</boolfield>\n"
+		"\t</sub>\n"
+		"\t<another attr=\"second\">\n"
+		"\t\t<stringfield>Good bye</stringfield>\n"
+		"\t\t<longfield>999666</longfield>\n"
+		"\t\t<boolfield>false</boolfield>\n"
+		"\t</another>\n"
+		"</super>\n";
+
+	struct TestStruct2 ts1;
+	Serialization::Deserializer<TestStruct2> d1(ts1);
+	Serialization::XMLParser p1(d1);
+	p1.parse(xml);
+
+	if(ts1.name != _T("supername"))
+		return false;
+	if(ts1.sub.attr != _T("first"))
+		return false;
+	if(ts1.sub.str != _T("Hi, here&there"))
+		return false;
+	if(ts1.sub.lng != 123454321L)
+		return false;
+	if(! ts1.sub.bol)
+		return false;
+	if(ts1.sec.attr != _T("second"))
+		return false;
+	if(ts1.sec.str != _T("Good bye"))
+		return false;
+	if(ts1.sec.lng != 999666)
+		return false;
+	if(ts1.sec.bol)
+		return false;
+	return true;
+}
 int _tmain(int argc, _TCHAR* argv[])
 {
 	int rc = 0;
@@ -158,6 +213,8 @@ int _tmain(int argc, _TCHAR* argv[])
 	if(! test2())
 		++rc;
 	if(! test3())
+		++rc;
+	if(! test4())
 		++rc;
 	return rc;
 }
