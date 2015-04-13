@@ -97,6 +97,15 @@ namespace Serialization {
 					m_owner.m_proxy = new Deserializer<T>(sub, name);
 				m_owner.m_proxy->data(m_name, m_value);
 			}
+			template<typename T> void table(T& lst, const char* name)
+			{
+				CPathTokenizer p(m_name);
+				if(! p.eat_token(name))
+					return;
+				if(! m_owner.m_proxy)
+					m_owner.m_proxy = new TableDeserializer<T>(lst, name);
+				m_owner.m_proxy->data(m_name, m_value);
+			}
 		};
 
 	private:
@@ -144,10 +153,12 @@ namespace Serialization {
 		typedef typename TableType::value_type ItemType;
 	private:
 		TableType& m_table;
+		const char* m_element_name;
 		ItemType* m_current_item;
 	public:
-		explicit TableDeserializer(TableType& tableref)
+		explicit TableDeserializer(TableType& tableref, const char* element_name/* = TableType::xml_element_name()*/)
 			: m_table(tableref)
+			, m_element_name(element_name)
 			, m_current_item(NULL)
 		{
 		}
@@ -163,7 +174,7 @@ namespace Serialization {
 		virtual void data(const char* path, LPCTSTR value)
 		{
 			CPathTokenizer p(path);
-			if(! p.eat_token(TableType::xml_element_name()))
+			if(! p.eat_token(m_element_name))
 				return;
 			if(p.empty())
 				return;
@@ -173,7 +184,7 @@ namespace Serialization {
 		virtual bool endelem(const char* path)
 		{
 			CPathTokenizer p(path);
-			if(! p.eat_token(TableType::xml_element_name(), true))
+			if(! p.eat_token(m_element_name, true))
 				return false;
 			if(p.empty())
 				return true;
@@ -201,6 +212,7 @@ namespace Serialization {
 			template<> inline void field<long>(const long& var, const char* name) { TOSS ss; ss << var; writer.data(name, ss.str().c_str(), 'n'); }
 			template<> inline void field<unsigned long>(const unsigned long& var, const char* name) { TOSS ss; ss << var; writer.data(name, ss.str().c_str(), 'n'); }
 			template<typename T> void complex(T& sub, const char* name) { Serializer<T>(sub, name).write2(writer, 'm'); }
+			template<typename T> void table(T& sub, const char* name) { TableSerializer<T>(sub, name).write(writer); }
 		private:
 			Serialization::IWriter& writer;
 		};
@@ -231,19 +243,21 @@ namespace Serialization {
 	{
 		typedef typename TableType::value_type ItemType;
 	public:
-		explicit TableSerializer(TableType& c)
+		explicit TableSerializer(TableType& c, const char* element_name/* = TableType::xml_element_name()*/)
 			: m_item(c)
+			, m_element_name(element_name)
 		{
 		}
 		void write(Serialization::IWriter& writer)
 		{
-			writer.startelem(TableType::xml_element_name(), 'a');
+			writer.startelem(m_element_name, 'a');
 			for(TableType::iterator it = m_item.begin(); it != m_item.end(); ++it)
 				Serializer<ItemType>(*it).write(writer);
-			writer.endelem(TableType::xml_element_name());
+			writer.endelem(m_element_name);
 		}
 	private:
 		TableType& m_item;
+		const char* m_element_name;
 	};
 
 } // namespace Serialization

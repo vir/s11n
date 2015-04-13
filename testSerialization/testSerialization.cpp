@@ -9,6 +9,7 @@
 #include <sstream>
 #include <vector>
 #include <iostream>
+#include <list>
 
 struct TestStruct1
 {
@@ -122,7 +123,7 @@ bool test3()
 		"</struct-list>\n";
 
 	CTestStructList v1;
-	Serialization::TableDeserializer<CTestStructList> d1(v1);
+	Serialization::TableDeserializer<CTestStructList> d1(v1, v1.xml_element_name());
 	Serialization::XMLParser p1(d1);
 	p1.parse(xml);
 
@@ -138,7 +139,7 @@ bool test3()
 		return false;
 
 	std::ostringstream x;
-	Serialization::TableSerializer<CTestStructList> s1(v1);
+	Serialization::TableSerializer<CTestStructList> s1(v1, v1.xml_element_name());
 	Serialization::XMLWriter w1(x);
 	s1.write(w1);
 	if(x.str() != xml)
@@ -164,7 +165,7 @@ struct TestStruct2
 	TestStruct1 sub, sec;
 };
 
-bool test4()
+bool test4() // structure in structure
 {
 	const char * xml = // "<?xml version=\"1.0\" ?>\n"
 		"<super name=\"supername\">\n"
@@ -240,6 +241,71 @@ bool test4()
 	}
 	return true;
 }
+
+struct TestStructWithList
+{
+	CString name;
+	std::list<TestStruct1> list;
+	static const char* xml_element_name() { return "tswl"; }
+	template<class Helper>void serialization(Helper& sr)
+	{
+		sr.field(name, "@name"); // attrs should go first
+		sr.table(list, "list");
+	}
+};
+
+bool test5() // struct with list
+{
+	const char * xml = // "<?xml version=\"1.0\" ?>\n"
+		"<tswl name=\"somename\">\n"
+		"\t<list>\n"
+		"\t\t<struct attr=\"first\">\n"
+		"\t\t\t<stringfield>Hi, here&amp;there</stringfield>\n"
+		"\t\t\t<longfield>123454321</longfield>\n"
+		"\t\t\t<boolfield>true</boolfield>\n"
+		"\t\t</struct>\n"
+		"\t\t<struct attr=\"second\">\n"
+		"\t\t\t<stringfield>Oh, shit!</stringfield>\n"
+		"\t\t\t<longfield>666</longfield>\n"
+		"\t\t\t<boolfield>false</boolfield>\n"
+		"\t\t</struct>\n"
+		"\t\t<struct attr=\"third\">\n"
+		"\t\t\t<stringfield>OMFG</stringfield>\n"
+		"\t\t\t<longfield>1998</longfield>\n"
+		"\t\t\t<boolfield>true</boolfield>\n"
+		"\t\t</struct>\n"
+		"\t</list>\n"
+		"</tswl>\n";
+
+	struct TestStructWithList ts;
+	Serialization::Deserializer<TestStructWithList> d1(ts);
+	Serialization::XMLParser p1(d1);
+	p1.parse(xml);
+
+	if(ts.name != _T("somename"))
+		return false;
+	if(ts.list.size() != 3)
+		return false;
+	if(ts.list.begin()->attr != _T("first"))
+		return false;
+	if(ts.list.rbegin()->str != _T("OMFG"))
+		return false;
+	if(ts.list.rbegin()->lng != 1998)
+		return false;
+
+	std::ostringstream x;
+	Serialization::Serializer<TestStructWithList> s1(ts);
+	Serialization::XMLWriter w1(x);
+	s1.write(w1);
+	if(x.str() != xml)
+	{
+		std::cout << "EXP: " << xml << std::endl << "GOT: " << x.str() << std::endl;
+		return false;
+	}
+	return true;
+}
+
+
 int _tmain(int argc, _TCHAR* argv[])
 {
 	int rc = 0;
@@ -250,6 +316,8 @@ int _tmain(int argc, _TCHAR* argv[])
 	if(! test3())
 		++rc;
 	if(! test4())
+		++rc;
+	if(! test5())
 		++rc;
 	return rc;
 }
