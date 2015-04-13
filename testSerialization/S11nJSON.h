@@ -23,7 +23,7 @@ namespace Serialization {
 		void parse();
 		void skip_space();
 		void parse_array();
-		void parse_object();
+		void parse_object(const char* name = "*");
 		void parse_string(std::string& s);
 	private:
 		CString decode(const char* s);
@@ -39,15 +39,17 @@ namespace Serialization {
 
 	class JSONWriter: public Serialization::IWriter
 	{
+		const static size_t MAX_DEPTH = 25;
 	public:
 		JSONWriter(std::ostream& stream, UINT encoding = CP_UTF8)
 			: stream(stream)
 			, need_comma(false)
 			, enc(encoding)
 		{
+			::memset(braces, 0, sizeof(braces));
 		}
 	public:
-		virtual void startelem(const char* name);
+		virtual void startelem(const char* name, char type);
 		virtual void data(const char* name, LPCTSTR val, char format);
 		virtual void endelem(const char* name);
 	private:
@@ -55,6 +57,7 @@ namespace Serialization {
 		std::ostream& stream;
 		bool need_comma;
 		UINT enc;
+		char braces[MAX_DEPTH];
 	};
 
 } // namespace Serialization

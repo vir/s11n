@@ -67,10 +67,11 @@ void Serialization::JSONParser::parse_array()
 	ASSERT(!"Not implemented");
 }
 
-void Serialization::JSONParser::parse_object()
+void Serialization::JSONParser::parse_object(const char* name /* = "*"*/)
 {
 	std::string key, val;
-	path += "/*";
+	path += "/";
+	path += name;
 	ASSERT(*json == '{');
 	++json;
 
@@ -90,14 +91,19 @@ void Serialization::JSONParser::parse_object()
 		case '\"':
 			parse_string(val);
 			++json;
+			sink->data((path + '/' + key).c_str(), decode(val.c_str()));
+			break;
+		case '{':
+			parse_object(key.c_str());
+			++json;
 			break;
 		default:
 			c = strcspn(json, ",} \t\r\n");
 			val.assign(json, c);
 			json += c;
+			sink->data((path + '/' + key).c_str(), decode(val.c_str()));
 			break;
 		}
-		sink->data((path + '/' + key).c_str(), decode(val.c_str()));
 		skip_space();
 		if(*json == ',')
 		{
@@ -106,6 +112,7 @@ void Serialization::JSONParser::parse_object()
 		}
 	}
 	sink->endelem(path.c_str());
+	path.erase(path.find_last_of('/'));
 }
 
 void Serialization::JSONParser::parse_string(std::string& s)
@@ -175,9 +182,22 @@ static std::string json_escape(const char* s)
 }
 
 
-void Serialization::JSONWriter::startelem(const char* name)
+void Serialization::JSONWriter::startelem(const char* name, char type)
 {
-	stream << "{";
+	switch (type)
+	{
+	case 'a':
+		stream << ", ["; //
+		::strcat_s(braces, "]");
+		break;
+	case 'm':
+		stream << ", \"" << json_escape(name) << "\": ";
+		/* no break */
+	default:
+		stream << "{";
+		::strcat_s(braces, "}");
+		break;
+	}
 	need_comma = false;
 }
 
@@ -204,7 +224,14 @@ void Serialization::JSONWriter::data(const char* name, LPCTSTR val, char format)
 
 void Serialization::JSONWriter::endelem(const char* name)
 {
-	stream << "}";
+	char* p = braces;
+	ASSERT(*p);
+	if(!*p)
+		return;
+	while(p[1])
+		++p;
+	stream << p;
+	*p = '\0';
 	need_comma = true;
 }
 

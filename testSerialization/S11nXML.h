@@ -37,7 +37,7 @@ namespace Serialization {
 		{
 		}
 	public:
-		virtual void startelem(const char* name);
+		virtual void startelem(const char* name, char type);
 		virtual void data(const char* name, LPCTSTR val, char format);
 		virtual void endelem(const char* name);
 	private:

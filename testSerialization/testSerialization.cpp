@@ -214,6 +214,30 @@ bool test4()
 		return false;
 	}
 
+	// build json
+	x.str("");
+	Serialization::JSONWriter w2(x);
+	s1.write(w2);
+	CStringA json(x.str().c_str());
+
+	// parse json
+	struct TestStruct2 ts2;
+	Serialization::Deserializer<TestStruct2> d2(ts2);
+	std::istringstream sss;
+	sss.str((const char*)json);
+	Serialization::JSONParser p2(sss);
+	p2.parse(d2);
+
+	// build xml again and check
+	x.str("");
+	Serialization::Serializer<TestStruct2> s3(ts2);
+	Serialization::XMLWriter w3(x);
+	s3.write(w3);
+	if(x.str() != xml)
+	{
+		std::cout << "EXP: " << xml << std::endl << "GOT: " << x.str() << std::endl;
+		return false;
+	}
 	return true;
 }
 int _tmain(int argc, _TCHAR* argv[])

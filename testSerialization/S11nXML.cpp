@@ -114,7 +114,7 @@ static std::string escape_xml(const char* s)
 
 
 
-void Serialization::XMLWriter::startelem(const char* name)
+void Serialization::XMLWriter::startelem(const char* name, char type)
 {
 	if(attrs)
 		stream << ">\n";

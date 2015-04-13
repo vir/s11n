@@ -10,12 +10,12 @@ namespace Serialization {
 	struct IDeserializer
 	{
 		virtual void data(const char* path, LPCTSTR value) = 0;
-		virtual void endelem(const char* path) = 0;
+		virtual bool endelem(const char* path) = 0;
 	};
 
 	struct IWriter
 	{
-		virtual void startelem(const char* name) = 0;
+		virtual void startelem(const char* name, char type) = 0;
 		virtual void data(const char* name, LPCTSTR val, char format) = 0;
 		virtual void endelem(const char* name) = 0;
 	};
@@ -88,21 +88,32 @@ namespace Serialization {
 		public:
 			Helper(Deserializer& owner, const char* name, LPCTSTR val):m_owner(owner), m_name(name),m_value(val) { }
 			template<typename T> inline void field(T& var, const char* name) { if(check_name(name)) store(var); }
-			template<typename T> void complex(T& sub, const char* name) { Deserializer<T>(sub, name).data(m_name, m_value); }
+			template<typename T> void complex(T& sub, const char* name)
+			{
+				CPathTokenizer p(m_name);
+				if(! p.eat_token(name))
+					return;
+				if(! m_owner.m_proxy)
+					m_owner.m_proxy = new Deserializer<T>(sub, name);
+				m_owner.m_proxy->data(m_name, m_value);
+			}
 		};
 
 	private:
 		RecType& m_item;
 		const char* m_element_name;
-		bool m_completion_flag;
+		IDeserializer* m_proxy;
 	public:
 		explicit Deserializer(RecType& itemref, const char* element_name = RecType::xml_element_name())
 			: m_item(itemref)
 			, m_element_name(element_name)
-			, m_completion_flag(false)
+			, m_proxy(NULL)
 		{
 		}
-		bool complete() const { return m_completion_flag; }
+		~Deserializer()
+		{
+			delete m_proxy;
+		}
 	public:
 		virtual void data(const char* path, LPCTSTR value)
 		{
@@ -110,16 +121,20 @@ namespace Serialization {
 			if(! p.eat_token(m_element_name))
 				return;
 			m_item.serialization(Deserializer::Helper(*this, p.tail(true), value));
-			m_completion_flag = false;
 		}
-		virtual void endelem(const char* path)
+		virtual bool endelem(const char* path)
 		{
 			CPathTokenizer p(path);
 			if(! p.eat_token(m_element_name))
-				return;
-			if(! p.empty())
-				return;
-			m_completion_flag = true;
+				return false;
+			if(p.empty())
+				return true;
+			if(m_proxy && m_proxy->endelem(p.tail()))
+			{
+				delete m_proxy;
+				m_proxy = NULL;
+			}
+			return false;
 		}
 	};
 
@@ -130,15 +145,12 @@ namespace Serialization {
 	private:
 		TableType& m_table;
 		ItemType* m_current_item;
-		bool m_completion_flag;
 	public:
 		explicit TableDeserializer(TableType& tableref)
 			: m_table(tableref)
 			, m_current_item(NULL)
-			, m_completion_flag(false)
 		{
 		}
-		bool complete() const { return m_completion_flag; }
 	private:
 		void enshure_element_exists()
 		{
@@ -146,7 +158,6 @@ namespace Serialization {
 				return;
 			m_table.push_back(ItemType());
 			m_current_item = &(*m_table.rbegin());
-			m_completion_flag = false;
 		}
 	public:
 		virtual void data(const char* path, LPCTSTR value)
@@ -159,20 +170,17 @@ namespace Serialization {
 			enshure_element_exists();
 			Deserializer<ItemType>(*m_current_item).data(p.tail(), value);
 		}
-		virtual void endelem(const char* path)
+		virtual bool endelem(const char* path)
 		{
 			CPathTokenizer p(path);
 			if(! p.eat_token(TableType::xml_element_name(), true))
-				return;
+				return false;
 			if(p.empty())
-			{
-				m_completion_flag = true;
-				return;
-			}
+				return true;
 			Deserializer<ItemType> r(*m_current_item);
-			r.endelem(p.tail());
-			if(r.complete())
+			if(r.endelem(p.tail()))
 				m_current_item = NULL;
+			return false;
 		}
 	};
 
@@ -192,7 +200,7 @@ namespace Serialization {
 			template<> inline void field<BSTR>(const BSTR& var, const char* name) { field(CString(var), name); }
 			template<> inline void field<long>(const long& var, const char* name) { TOSS ss; ss << var; writer.data(name, ss.str().c_str(), 'n'); }
 			template<> inline void field<unsigned long>(const unsigned long& var, const char* name) { TOSS ss; ss << var; writer.data(name, ss.str().c_str(), 'n'); }
-			template<typename T> void complex(T& sub, const char* name) { Serializer<T>(sub, name).write(writer); }
+			template<typename T> void complex(T& sub, const char* name) { Serializer<T>(sub, name).write2(writer, 'm'); }
 		private:
 			Serialization::IWriter& writer;
 		};
@@ -206,11 +214,15 @@ namespace Serialization {
 			, m_element_name(element_name)
 		{
 		}
-		void write(Serialization::IWriter& writer)
+		void write2(Serialization::IWriter& writer, char type)
 		{
-			writer.startelem(m_element_name);
+			writer.startelem(m_element_name, type);
 			m_item.serialization(Serializer::Helper(writer));
 			writer.endelem(m_element_name);
+		}
+		inline void write(Serialization::IWriter& writer)
+		{
+			write2(writer, 's');
 		}
 	};
 
@@ -225,7 +237,7 @@ namespace Serialization {
 		}
 		void write(Serialization::IWriter& writer)
 		{
-			writer.startelem(TableType::xml_element_name());
+			writer.startelem(TableType::xml_element_name(), 'a');
 			for(TableType::iterator it = m_item.begin(); it != m_item.end(); ++it)
 				Serializer<ItemType>(*it).write(writer);
 			writer.endelem(TableType::xml_element_name());
