@@ -203,6 +203,17 @@ bool test4()
 		return false;
 	if(ts1.sec.bol)
 		return false;
+
+	std::ostringstream x;
+	Serialization::Serializer<TestStruct2> s1(ts1);
+	Serialization::XMLWriter w1(x);
+	s1.write(w1);
+	if(x.str() != xml)
+	{
+		std::cout << "EXP: " << xml << std::endl << "GOT: " << x.str() << std::endl;
+		return false;
+	}
+
 	return true;
 }
 int _tmain(int argc, _TCHAR* argv[])

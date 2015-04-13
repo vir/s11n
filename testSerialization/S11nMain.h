@@ -192,22 +192,25 @@ namespace Serialization {
 			template<> inline void field<BSTR>(const BSTR& var, const char* name) { field(CString(var), name); }
 			template<> inline void field<long>(const long& var, const char* name) { TOSS ss; ss << var; writer.data(name, ss.str().c_str(), 'n'); }
 			template<> inline void field<unsigned long>(const unsigned long& var, const char* name) { TOSS ss; ss << var; writer.data(name, ss.str().c_str(), 'n'); }
+			template<typename T> void complex(T& sub, const char* name) { Serializer<T>(sub, name).write(writer); }
 		private:
 			Serialization::IWriter& writer;
 		};
 
 	private:
 		RecType& m_item;
+		const char* m_element_name;
 	public:
-		explicit Serializer(RecType& itemref)
+		explicit Serializer(RecType& itemref, const char* element_name = RecType::xml_element_name())
 			: m_item(itemref)
+			, m_element_name(element_name)
 		{
 		}
 		void write(Serialization::IWriter& writer)
 		{
-			writer.startelem(RecType::xml_element_name());
+			writer.startelem(m_element_name);
 			m_item.serialization(Serializer::Helper(writer));
-			writer.endelem(RecType::xml_element_name());
+			writer.endelem(m_element_name);
 		}
 	};
 
