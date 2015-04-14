@@ -16,15 +16,20 @@ namespace Serialization {
 		void parse(Serialization::IDeserializer& obj)
 		{
 			sink = &obj;
-			parse();
+			while(*json && json != deadline)
+			{
+				parse();
+			}
 			sink = NULL;
 		}
 	protected:
-		void parse();
+		void parse(const char* name = "*");
 		void skip_space();
 		void parse_array(const char* name = "*");
 		void parse_object(const char* name = "*");
-		void parse_string(std::string& s);
+		void parse_string(const char* name = "*");
+		void parse_string2(std::string& s);
+		bool parse_value(const char* name = "*");
 	private:
 		CString decode(const char* s);
 		std::istream& stream;

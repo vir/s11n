@@ -21,24 +21,23 @@ Serialization::JSONParser::~JSONParser()
 	delete[] buf;
 }
 
-void Serialization::JSONParser::parse()
+void Serialization::JSONParser::parse(const char* name /* = "*" */)
 {
-	while(*json && json != deadline)
+	skip_space();
+	switch (*json)
 	{
-		skip_space();
-		switch (*json)
-		{
-		case '[':
-			parse_array();
-			break;
-		case '{':
-			parse_object();
-			break;
-		default:
-			ASSERT(0);
-			break;
-		}
-		++json;
+	case '\"':
+		parse_string(name);
+		break;
+	case '[':
+		parse_array(name);
+		break;
+	case '{':
+		parse_object(name);
+		break;
+	default:
+		parse_value(name);
+		break;
 	}
 }
 
@@ -64,7 +63,6 @@ void Serialization::JSONParser::skip_space()
 
 void Serialization::JSONParser::parse_array(const char* name /* = "*" */)
 {
-	std::string val;
 	path += "/";
 	path += name;
 	ASSERT(*json == '[');
@@ -72,30 +70,7 @@ void Serialization::JSONParser::parse_array(const char* name /* = "*" */)
 
 	while(*json && *json != ']' && json != deadline)
 	{
-		int c;
-		skip_space();
-		switch (*json)
-		{
-		case '\"':
-			parse_string(val);
-			++json;
-			sink->data((path + "/*").c_str(), decode(val.c_str()));
-			break;
-		case '{':
-			parse_object();
-			++json;
-			break;
-		case '[':
-			parse_array();
-			++json;
-			break;
-		default:
-			c = strcspn(json, ",} \t\r\n");
-			val.assign(json, c);
-			json += c;
-			sink->data((path + "/*").c_str(), decode(val.c_str()));
-			break;
-		}
+		parse();
 		skip_space();
 		if(*json == ',')
 		{
@@ -103,13 +78,15 @@ void Serialization::JSONParser::parse_array(const char* name /* = "*" */)
 			skip_space();
 		}
 	}
+	ASSERT(*json == ']');
+	++json;
 	sink->endelem(path.c_str());
 	path.erase(path.find_last_of('/'));
 }
 
 void Serialization::JSONParser::parse_object(const char* name /* = "*" */)
 {
-	std::string key, val;
+	std::string key;
 	path += "/";
 	path += name;
 	ASSERT(*json == '{');
@@ -117,37 +94,13 @@ void Serialization::JSONParser::parse_object(const char* name /* = "*" */)
 
 	while(*json && *json != '}' && json != deadline)
 	{
-		int c;
 		skip_space();
-		parse_string(key);
-		++json;
+		parse_string2(key);
 		skip_space();
 		if(*json != ':')
 			throw std::exception("bad object");
 		++json;
-		skip_space();
-		switch (*json)
-		{
-		case '\"':
-			parse_string(val);
-			++json;
-			sink->data((path + '/' + key).c_str(), decode(val.c_str()));
-			break;
-		case '{':
-			parse_object(key.c_str());
-			++json;
-			break;
-		case '[':
-			parse_array(key.c_str());
-			++json;
-			break;
-		default:
-			c = strcspn(json, ",} \t\r\n");
-			val.assign(json, c);
-			json += c;
-			sink->data((path + '/' + key).c_str(), decode(val.c_str()));
-			break;
-		}
+		parse(key.c_str());
 		skip_space();
 		if(*json == ',')
 		{
@@ -155,11 +108,20 @@ void Serialization::JSONParser::parse_object(const char* name /* = "*" */)
 			skip_space();
 		}
 	}
+	ASSERT(*json == '}');
+	++json;
 	sink->endelem(path.c_str());
 	path.erase(path.find_last_of('/'));
 }
 
-void Serialization::JSONParser::parse_string(std::string& s)
+void Serialization::JSONParser::parse_string(const char* name /*= "*"*/)
+{
+	std::string val;
+	parse_string2(val);
+	sink->data((path + '/' + name).c_str(), decode(val.c_str()));
+}
+
+void Serialization::JSONParser::parse_string2(std::string& s)
 {
 	std::ostringstream ss;
 	if(*json != '\"')
@@ -204,7 +166,22 @@ void Serialization::JSONParser::parse_string(std::string& s)
 		}
 		++json;
 	}
+	ASSERT(*json == '\"');
+	if(*json == '\"')
+		++json;
 	s = ss.str();
+}
+
+bool Serialization::JSONParser::parse_value(const char* name /*= "*"*/)
+{
+	int c = strcspn(json, ",} \t\r\n");
+	if(0 == c)
+		return false;
+	std::string val;
+	val.assign(json, c);
+	json += c;
+	sink->data((path + "/" + name).c_str(), decode(val.c_str()));
+	return true;
 }
 
 CString Serialization::JSONParser::decode(const char* s)
