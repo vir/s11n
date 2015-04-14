@@ -293,10 +293,24 @@ bool test5() // struct with list
 	if(ts.list.rbegin()->lng != 1998)
 		return false;
 
-	std::ostringstream x;
+	std::ostringstream jsonw;
 	Serialization::Serializer<TestStructWithList> s1(ts);
+	Serialization::JSONWriter wj(jsonw);
+	s1.write(wj);
+
+	CStringA json = jsonw.str().c_str();
+
+	std::istringstream jsonr;
+	jsonr.str((const char*)json);
+	struct TestStructWithList ts2;
+	Serialization::Deserializer<TestStructWithList> d2(ts2);
+	Serialization::JSONParser pj(jsonr);
+	pj.parse(d2);
+
+	std::ostringstream x;
+	Serialization::Serializer<TestStructWithList> s2(ts2);
 	Serialization::XMLWriter w1(x);
-	s1.write(w1);
+	s2.write(w1);
 	if(x.str() != xml)
 	{
 		std::cout << "EXP: " << xml << std::endl << "GOT: " << x.str() << std::endl;

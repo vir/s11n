@@ -38,7 +38,7 @@ namespace Serialization {
 				++m_pos;
 			if(*m_pos == '*') // json wildcard
 			{
-				m_pos += 2;
+				++m_pos;
 				return true;
 			}
 			char* p = m_pos;
@@ -51,7 +51,13 @@ namespace Serialization {
 			return true;
 		}
 		bool empty() const { return !*m_pos; }
-		const char* tail(bool strip_slash = false) { return (strip_slash && *m_pos == '/') ? m_pos+1 : m_pos; }
+		const char* tail(bool strip_slash = false)
+		{
+			if(strip_slash && *m_pos == '/')
+				return m_pos+1;
+			else
+				return m_pos;
+		}
 		bool has_slash() const { return NULL != ::strchr(m_pos + 1, '/'); }
 	};
 

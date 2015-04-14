@@ -22,7 +22,7 @@ namespace Serialization {
 	protected:
 		void parse();
 		void skip_space();
-		void parse_array();
+		void parse_array(const char* name = "*");
 		void parse_object(const char* name = "*");
 		void parse_string(std::string& s);
 	private:
