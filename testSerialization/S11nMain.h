@@ -84,6 +84,7 @@ namespace Serialization {
 		private:
 			inline bool check_name(const char * name) { return 0 == strcmp(m_name, name); }
 			inline void store(CString& var)           { var = m_value; }
+			inline void store(CComBSTR& var)          { var = m_value; }
 			inline void store(long& var)              { var = _ttol(m_value); }
 			inline void store(unsigned long& var)     { var = _ttol(m_value); }
 			inline void store(bool& var)              { var = str2bool(m_value); }
@@ -215,6 +216,7 @@ namespace Serialization {
 			template<> inline void field<bool>(const bool& var, const char* name) { writer.data(name, var ? _T("true") : _T("false"), 'b'); }
 			template<> inline void field<CString>(const CString& var, const char* name) { writer.data(name, var, 's'); }
 			template<> inline void field<BSTR>(const BSTR& var, const char* name) { field(CString(var), name); }
+			template<> inline void field<CComBSTR>(const CComBSTR& var, const char* name) { field(CString(var), name); }
 			template<> inline void field<long>(const long& var, const char* name) { TOSS ss; ss << var; writer.data(name, ss.str().c_str(), 'n'); }
 			template<> inline void field<unsigned long>(const unsigned long& var, const char* name) { TOSS ss; ss << var; writer.data(name, ss.str().c_str(), 'n'); }
 			template<typename T> void complex(T& sub, const char* name) { Serializer<T>(sub, name).write2(writer, 'm'); }
