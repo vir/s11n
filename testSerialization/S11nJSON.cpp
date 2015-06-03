@@ -199,7 +199,38 @@ CString Serialization::JSONParser::decode(const char* s)
 
 static std::string json_escape(const char* s)
 {
-	return s;
+	std::ostringstream ss;
+	while(*s)
+	{
+		switch(*s)
+		{
+		case '\\':
+		case '\'':
+		case '\"':
+			ss << "\\" << *s;
+			break;
+		case 0x08:
+			ss << "\\b";
+			break;
+		case 0x0C:
+			ss << "\\f";
+			break;
+		case 0x0A:
+			ss << "\\n";
+			break;
+		case 0x0D:
+			ss << "\\r";
+			break;
+		case 0x09:
+			ss << "\\t";
+			break;
+		default:
+			ss << *s;
+			break;
+		}
+		++s;
+	}
+	return ss.str();
 }
 
 
